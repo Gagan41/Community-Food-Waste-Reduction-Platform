@@ -1,12 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
-import { getFoodListings } from '../lib/supabase';
-import { Filter, Search, Clock, Star, Sliders } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { Filter, Search, Clock, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
-// Set Mapbox token from env var
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || '';
+// Fix for default marker icons in Leaflet with React
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
 
 // Food listing type
 interface FoodListing {
@@ -27,18 +32,48 @@ interface FoodListing {
   urgency: 'low' | 'medium' | 'high';
 }
 
+// Karnataka locations
+const LOCATIONS = {
+  TIPTUR: { lat: 13.2565, lng: 76.4777, name: 'Tiptur' },
+  TUMKUR: { lat: 13.3415, lng: 77.1010, name: 'Tumakuru' },
+  TUREVEKERE: { lat: 13.9927, lng: 76.4767, name: 'Turevekere' }
+};
+
+// Center the map on Tumakuru
+const defaultCenter: [number, number] = [13.3415, 77.1010]; // Tumakuru coordinates
+const defaultZoom = 11; // Adjusted zoom level for better view of Tumakuru
+
+// Component to handle map view changes
+const MapController: React.FC<{ center: [number, number] }> = ({ center }) => {
+  const map = useMap();
+  
+  useEffect(() => {
+    try {
+      map.setView(center);
+    } catch (error) {
+      console.error('Error setting map view:', error);
+    }
+  }, [center, map]);
+  
+  return null;
+};
+
 const MapPage: React.FC = () => {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
   const [listings, setListings] = useState<FoodListing[]>([]);
   const [filters, setFilters] = useState({
     foodType: '',
     urgency: '',
     distance: 10, // in km
   });
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const [selectedListing, setSelectedListing] = useState<FoodListing | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  
+  const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const mapRef = useRef<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+
   // Mock data for food listings
   const mockListings: FoodListing[] = [
     {
@@ -93,124 +128,177 @@ const MapPage: React.FC = () => {
       urgency: 'low'
     }
   ];
-  
-  // Initialize map when component mounts
-  useEffect(() => {
-    if (map.current || !mapContainer.current) return;
-    
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v11',
-      center: [-74.0060, 40.7128], // Default to NYC
-      zoom: 12
-    });
-    
-    // Add navigation controls
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-    
-    // Add user location control
-    map.current.addControl(
-      new mapboxgl.GeolocateControl({
-        positionOptions: {
-          enableHighAccuracy: true
-        },
-        trackUserLocation: true
-      })
-    );
-    
-    map.current.on('load', () => {
-      setMapLoaded(true);
-    });
-    
-    // Clean up on unmount
-    return () => {
-      if (map.current) {
-        map.current.remove();
-        map.current = null;
-      }
-    };
-  }, []);
-  
+
   // Load food listings data
   useEffect(() => {
-    // In a real app, this would fetch from Supabase
-    // const loadListings = async () => {
-    //   const { data, error } = await getFoodListings(filters);
-    //   if (!error && data) {
-    //     setListings(data);
-    //   }
-    // };
-    // loadListings();
-    
-    // Using mock data for now
-    setListings(mockListings);
+    const loadListings = async () => {
+      try {
+        setIsLoading(true);
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setListings(mockListings);
+        setMapError(null);
+      } catch (error) {
+        console.error('Error loading listings:', error);
+        setMapError('Failed to load food listings');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadListings();
   }, [filters]);
-  
-  // Add markers to map when listings or map changes
+
+  // Initialize map when component mounts
   useEffect(() => {
-    if (!map.current || !mapLoaded || listings.length === 0) return;
-    
-    // Remove existing markers
-    const markers = document.querySelectorAll('.mapboxgl-marker');
-    markers.forEach(marker => marker.remove());
-    
-    // Add new markers
-    listings.forEach(listing => {
-      const { latitude, longitude } = listing.location;
-      
-      // Create custom marker element
-      const markerEl = document.createElement('div');
-      markerEl.className = 'custom-marker';
-      markerEl.innerHTML = `
-        <div class="w-10 h-10 bg-white rounded-full border-2 flex items-center justify-center shadow-lg ${
-          listing.urgency === 'high' 
-            ? 'border-error-500' 
-            : listing.urgency === 'medium' 
-              ? 'border-warning-500' 
-              : 'border-success-500'
-        }">
-          <div class="w-6 h-6 bg-${
-            listing.urgency === 'high' 
-              ? 'error' 
-              : listing.urgency === 'medium' 
-                ? 'warning' 
-                : 'success'
-          }-500 rounded-full"></div>
-        </div>
-      `;
-      
-      // Create popup
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-        <div class="p-2">
-          <h3 class="font-bold text-gray-800">${listing.name}</h3>
-          <p class="text-sm text-gray-600">${listing.description}</p>
-          <p class="text-sm mt-2"><strong>Quantity:</strong> ${listing.quantity}</p>
-          <p class="text-sm"><strong>Expires:</strong> ${new Date(listing.expiration).toLocaleDateString()}</p>
-          <p class="text-sm"><strong>Donor:</strong> ${listing.donor_name}</p>
-          <a href="/map?listing=${listing.id}" class="block mt-2 text-center px-4 py-2 bg-primary-500 text-white rounded-md text-sm">View Details</a>
-        </div>
-      `);
-      
-      // Add marker to map
-      new mapboxgl.Marker(markerEl)
-        .setLngLat([longitude, latitude])
-        .setPopup(popup)
-        .addTo(map.current!);
-    });
-  }, [listings, mapLoaded]);
-  
-  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!mapRef.current && mapContainerRef.current && !isLoading && !mapError) {
+      try {
+        // Create map instance
+        const map = L.map(mapContainerRef.current, {
+          center: defaultCenter,
+          zoom: defaultZoom,
+          zoomControl: true,
+          attributionControl: true,
+        });
+
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19,
+        }).addTo(map);
+
+        // Store map reference
+        mapRef.current = map;
+        setMapReady(true);
+
+        // Add location markers
+        Object.values(LOCATIONS).forEach(location => {
+          const marker = L.marker([location.lat, location.lng])
+            .addTo(map)
+            .bindPopup(`
+              <div class="p-2">
+                <h3 class="font-bold text-lg mb-2">${location.name}</h3>
+                <p class="text-gray-600">Karnataka, India</p>
+              </div>
+            `);
+        });
+
+        // Add food listing markers
+        listings.forEach(listing => {
+          const marker = L.marker(
+            [listing.location.latitude, listing.location.longitude],
+            { icon: createCustomIcon(listing.urgency) }
+          ).addTo(map);
+
+          marker.bindPopup(`
+            <div class="p-2">
+              <h3 class="font-bold text-lg mb-2">${listing.name}</h3>
+              <p class="text-gray-600 mb-2">${listing.description}</p>
+              <p class="text-sm text-gray-500">
+                <span class="inline-block mr-1">⏰</span>
+                Expires: ${new Date(listing.expiration).toLocaleDateString()}
+              </p>
+            </div>
+          `);
+
+          marker.on('click', () => handleListingClick(listing));
+        });
+
+        // Force a resize event to ensure proper rendering
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 100);
+
+        return () => {
+          if (mapRef.current) {
+            mapRef.current.remove();
+            mapRef.current = null;
+          }
+        };
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        setMapError('Failed to initialize map');
+      }
+    }
+  }, [isLoading, mapError, listings]);
+
+  // Update map center when it changes
+  useEffect(() => {
+    if (mapRef.current && mapReady) {
+      mapRef.current.setView(mapCenter);
+      // Force a resize event to ensure proper rendering
+      setTimeout(() => {
+        mapRef.current?.invalidateSize();
+      }, 100);
+    }
+  }, [mapCenter, mapReady]);
+
+  const handleFilterChange = useCallback((e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
-  };
-  
+  }, []);
+
+  const getMarkerColor = useCallback((urgency: string) => {
+    switch (urgency) {
+      case 'high':
+        return '#ef4444'; // red
+      case 'medium':
+        return '#f97316'; // orange
+      case 'low':
+        return '#22c55e'; // green
+      default:
+        return '#3b82f6'; // blue
+    }
+  }, []);
+
+  const createCustomIcon = useCallback((urgency: string) => {
+    try {
+      return L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="
+          background-color: ${getMarkerColor(urgency)};
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          border: 2px solid white;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        "></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      });
+    } catch (error) {
+      console.error('Error creating custom icon:', error);
+      return L.divIcon({
+        className: 'custom-marker',
+        html: `<div style="
+          background-color: #3b82f6;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          border: 2px solid white;
+        "></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      });
+    }
+  }, [getMarkerColor]);
+
+  const handleListingClick = useCallback((listing: FoodListing) => {
+    try {
+      setSelectedListing(listing);
+      setMapCenter([listing.location.latitude, listing.location.longitude]);
+    } catch (error) {
+      console.error('Error handling listing click:', error);
+    }
+  }, []);
+
   return (
     <section className="min-h-screen pt-20 pb-16">
       <div className="container-custom">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl md:text-4xl font-bold mb-4">Food Sharing Map</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-4">Food Sharing Map - Tumakuru</h1>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Discover food donations available in your area. Use the filters to find what you need.
+            Discover food donations available in Tumakuru and surrounding areas (Tiptur, Turevekere).
           </p>
         </div>
         
@@ -238,7 +326,7 @@ const MapPage: React.FC = () => {
         </div>
         
         {/* Filters panel */}
-        <motion.div 
+        <motion.div
           className="bg-white rounded-lg shadow-md p-4 mb-6"
           initial={{ height: 0, opacity: 0 }}
           animate={{ 
@@ -258,14 +346,12 @@ const MapPage: React.FC = () => {
                   name="foodType"
                   value={filters.foodType}
                   onChange={handleFilterChange}
-                  className="input-field"
+                  className="w-full input-field"
                 >
                   <option value="">All Types</option>
-                  <option value="Produce">Produce</option>
                   <option value="Bakery">Bakery</option>
-                  <option value="Dairy">Dairy</option>
-                  <option value="Canned">Canned Goods</option>
-                  <option value="Prepared">Prepared Meals</option>
+                  <option value="Produce">Produce</option>
+                  <option value="Canned">Canned</option>
                 </select>
               </div>
               
@@ -277,10 +363,10 @@ const MapPage: React.FC = () => {
                   name="urgency"
                   value={filters.urgency}
                   onChange={handleFilterChange}
-                  className="input-field"
+                  className="w-full input-field"
                 >
-                  <option value="">Any Urgency</option>
-                  <option value="high">High (Expires Soon)</option>
+                  <option value="">All Urgency Levels</option>
+                  <option value="high">High</option>
                   <option value="medium">Medium</option>
                   <option value="low">Low</option>
                 </select>
@@ -288,77 +374,96 @@ const MapPage: React.FC = () => {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Distance
+                  Distance (km)
                 </label>
-                <select 
+                <input 
+                  type="range"
                   name="distance"
+                  min="1"
+                  max="50"
                   value={filters.distance}
-                  onChange={handleFilterChange as any}
-                  className="input-field"
-                >
-                  <option value={2}>Within 2 km</option>
-                  <option value={5}>Within 5 km</option>
-                  <option value={10}>Within 10 km</option>
-                  <option value={25}>Within 25 km</option>
-                  <option value={50}>Within 50 km</option>
-                </select>
+                  onChange={handleFilterChange}
+                  className="w-full"
+                />
+                <span className="text-sm text-gray-600">{filters.distance} km</span>
               </div>
             </div>
           )}
         </motion.div>
         
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* Map */}
-          <div className="lg:w-3/4">
-            <div 
-              ref={mapContainer} 
-              className="map-container rounded-lg shadow-lg border border-gray-200"
-            />
-          </div>
+        {/* Map Container */}
+        <div 
+          ref={mapContainerRef}
+          className="relative h-[70vh] w-full rounded-lg overflow-hidden shadow-lg bg-gray-100"
+          style={{ minHeight: '500px' }}
+        >
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary-500 border-t-transparent"></div>
+            </div>
+          )}
           
-          {/* Listings sidebar */}
-          <div className="lg:w-1/4">
-            <div className="bg-white rounded-lg shadow-lg p-4">
-              <h2 className="text-lg font-semibold mb-4 flex items-center">
-                <Star className="w-5 h-5 text-primary-500 mr-2" />
-                Nearby Listings
-              </h2>
-              
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                {listings.map(listing => (
-                  <div 
-                    key={listing.id}
-                    className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex justify-between items-start">
-                      <h3 className="font-medium">{listing.name}</h3>
-                      <div className={`px-2 py-1 text-xs rounded-full ${
-                        listing.urgency === 'high' 
-                          ? 'bg-error-100 text-error-700' 
-                          : listing.urgency === 'medium' 
-                            ? 'bg-warning-100 text-warning-700' 
-                            : 'bg-success-100 text-success-700'
-                      }`}>
-                        {listing.urgency.charAt(0).toUpperCase() + listing.urgency.slice(1)}
-                      </div>
-                    </div>
-                    
-                    <p className="text-sm text-gray-600 mt-1">{listing.description}</p>
-                    
-                    <div className="mt-2 flex items-center text-xs text-gray-500">
-                      <Clock className="w-3 h-3 mr-1" />
-                      Expires: {new Date(listing.expiration).toLocaleDateString()}
-                    </div>
-                    
-                    <button className="mt-3 w-full py-1.5 bg-primary-50 text-primary-600 rounded text-sm font-medium hover:bg-primary-100 transition-colors">
-                      View Details
-                    </button>
-                  </div>
-                ))}
+          {mapError && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+              <div className="text-center">
+                <p className="text-red-500 mb-4">{mapError}</p>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="btn-primary"
+                >
+                  Retry
+                </button>
               </div>
             </div>
-          </div>
+          )}
         </div>
+
+        {/* Selected Listing Details */}
+        {selectedListing && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mt-6 bg-white rounded-lg shadow-md p-6"
+          >
+            <h2 className="text-2xl font-bold mb-4">{selectedListing.name}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <p className="text-gray-600 mb-4">{selectedListing.description}</p>
+                <p className="mb-2">
+                  <span className="font-semibold">Quantity:</span> {selectedListing.quantity}
+                </p>
+                <p className="mb-2">
+                  <span className="font-semibold">Location:</span> {selectedListing.location.address}
+                </p>
+                <p className="mb-2">
+                  <span className="font-semibold">Donor:</span> {selectedListing.donor_name}
+                </p>
+              </div>
+              <div>
+                <p className="mb-2">
+                  <span className="font-semibold">Food Type:</span> {selectedListing.food_type}
+                </p>
+                <p className="mb-2">
+                  <span className="font-semibold">Urgency:</span>{' '}
+                  <span className={`px-2 py-1 rounded-full text-sm ${
+                    selectedListing.urgency === 'high' ? 'bg-red-100 text-red-800' :
+                    selectedListing.urgency === 'medium' ? 'bg-orange-100 text-orange-800' :
+                    'bg-green-100 text-green-800'
+                  }`}>
+                    {selectedListing.urgency.charAt(0).toUpperCase() + selectedListing.urgency.slice(1)}
+                  </span>
+                </p>
+                <p className="mb-2">
+                  <span className="font-semibold">Expiration:</span>{' '}
+                  {new Date(selectedListing.expiration).toLocaleDateString()}
+                </p>
+                <button className="btn-primary mt-4">
+                  Contact Donor
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
     </section>
   );

@@ -10,6 +10,14 @@ const NavBar: React.FC = () => {
   const { user, signOut } = useAuth();
   const location = useLocation();
 
+  // Check if current path is auth pages
+  const isAuthPage = location.pathname.includes("/auth/");
+
+  // If on auth pages, don't render the navbar
+  if (isAuthPage) {
+    return null;
+  }
+
   // Handle scroll event to change navbar appearance
   useEffect(() => {
     const handleScroll = () => {
@@ -80,6 +88,26 @@ const NavBar: React.FC = () => {
             >
               Food Map
             </Link>
+            <Link
+              to="/donate"
+              className={`font-medium hover:text-primary-500 transition-colors ${
+                location.pathname === "/donate"
+                  ? "text-primary-500"
+                  : "text-gray-700"
+              }`}
+            >
+              Donate
+            </Link>
+            <Link
+              to="/rewards"
+              className={`font-medium hover:text-primary-500 transition-colors ${
+                location.pathname === "/rewards"
+                  ? "text-primary-500"
+                  : "text-gray-700"
+              }`}
+            >
+              Rewards
+            </Link>
             <a
               href="https://maverick4.netlify.app/"
               target="_blank"
@@ -91,6 +119,14 @@ const NavBar: React.FC = () => {
               }`}
             >
               Predict
+            </a>
+            <a
+              href="https://eatby-date.netlify.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium hover:text-primary-500 transition-colors text-gray-700"
+            >
+              Inventory
             </a>
             <Link
               to="/contact"
@@ -188,6 +224,26 @@ const NavBar: React.FC = () => {
                 >
                   Food Map
                 </Link>
+                <Link
+                  to="/donate"
+                  className={`font-medium text-lg ${
+                    location.pathname === "/donate"
+                      ? "text-primary-500"
+                      : "text-gray-700"
+                  }`}
+                >
+                  Donate
+                </Link>
+                <Link
+                  to="/rewards"
+                  className={`font-medium text-lg ${
+                    location.pathname === "/rewards"
+                      ? "text-primary-500"
+                      : "text-gray-700"
+                  }`}
+                >
+                  Rewards
+                </Link>
                 <a
                   href="https://maverick4.netlify.app/"
                   target="_blank"
@@ -198,7 +254,15 @@ const NavBar: React.FC = () => {
                       : "text-gray-700"
                   }`}
                 >
-                  Dashboard
+                  Predict
+                </a>
+                <a
+                  href="https://eatby-date.netlify.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-lg text-gray-700"
+                >
+                  Inventory
                 </a>
                 <Link
                   to="/contact"

@@ -1,9 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase, getCurrentUser } from "../lib/supabase";
-import { User } from "@supabase/supabase-js";
+import { User as SupabaseUser } from "@supabase/supabase-js";
+
+// Extend the Supabase User type
+interface ExtendedUser extends SupabaseUser {
+  accountType?: "donor" | "recipient";
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: ExtendedUser | null;
   profile: any | null;
   loading: boolean;
   error: string | null;
@@ -25,7 +30,7 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<ExtendedUser | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,18 +58,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = async () => {
     try {
       setLoading(true);
-      const { user, error } = await getCurrentUser();
+      const { user: supabaseUser, error } = await getCurrentUser();
 
       if (error) {
         throw error;
       }
 
-      setUser(user);
-
-      if (user) {
-        const userProfile = await loadProfile(user.id);
+      if (supabaseUser) {
+        const userProfile = await loadProfile(supabaseUser.id);
         setProfile(userProfile);
+
+        // Create extended user with account type from profile
+        const extendedUser: ExtendedUser = {
+          ...supabaseUser,
+          accountType: userProfile?.account_type || undefined,
+        };
+        setUser(extendedUser);
       } else {
+        setUser(null);
         setProfile(null);
       }
     } catch (err: any) {
@@ -95,9 +106,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (session && session.user) {
-          setUser(session.user);
           const userProfile = await loadProfile(session.user.id);
           setProfile(userProfile);
+
+          // Create extended user with account type from profile
+          const extendedUser: ExtendedUser = {
+            ...session.user,
+            accountType: userProfile?.account_type || undefined,
+          };
+          setUser(extendedUser);
         } else {
           setUser(null);
           setProfile(null);
