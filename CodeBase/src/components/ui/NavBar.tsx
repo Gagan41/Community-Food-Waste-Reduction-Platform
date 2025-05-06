@@ -13,11 +13,6 @@ const NavBar: React.FC = () => {
   // Check if current path is auth pages
   const isAuthPage = location.pathname.includes("/auth/");
 
-  // If on auth pages, don't render the navbar
-  if (isAuthPage) {
-    return null;
-  }
-
   // Handle scroll event to change navbar appearance
   useEffect(() => {
     const handleScroll = () => {
@@ -42,6 +37,11 @@ const NavBar: React.FC = () => {
   const toggleMenu = () => {
     setIsOpen(!isOpen);
   };
+
+  // Move the conditional rendering to the return statement
+  if (isAuthPage) {
+    return null;
+  }
 
   return (
     <header
@@ -79,56 +79,6 @@ const NavBar: React.FC = () => {
               How It Works
             </Link>
             <Link
-              to="/map"
-              className={`font-medium hover:text-primary-500 transition-colors ${
-                location.pathname === "/map"
-                  ? "text-primary-500"
-                  : "text-gray-700"
-              }`}
-            >
-              Food Map
-            </Link>
-            <Link
-              to="/donate"
-              className={`font-medium hover:text-primary-500 transition-colors ${
-                location.pathname === "/donate"
-                  ? "text-primary-500"
-                  : "text-gray-700"
-              }`}
-            >
-              Donate
-            </Link>
-            <Link
-              to="/rewards"
-              className={`font-medium hover:text-primary-500 transition-colors ${
-                location.pathname === "/rewards"
-                  ? "text-primary-500"
-                  : "text-gray-700"
-              }`}
-            >
-              Rewards
-            </Link>
-            <a
-              href="https://maverick4.netlify.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`font-medium hover:text-primary-500 transition-colors ${
-                location.pathname.includes("/dashboard")
-                  ? "text-primary-500"
-                  : "text-gray-700"
-              }`}
-            >
-              Predict
-            </a>
-            <a
-              href="https://eatby-date.netlify.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium hover:text-primary-500 transition-colors text-gray-700"
-            >
-              Inventory
-            </a>
-            <Link
               to="/contact"
               className={`font-medium hover:text-primary-500 transition-colors ${
                 location.pathname === "/contact"
@@ -138,6 +88,68 @@ const NavBar: React.FC = () => {
             >
               Contact Us
             </Link>
+            {user && (
+              <>
+                <Link
+                  to="/map"
+                  className={`font-medium hover:text-primary-500 transition-colors ${
+                    location.pathname === "/map"
+                      ? "text-primary-500"
+                      : "text-gray-700"
+                  }`}
+                >
+                  Food Map
+                </Link>
+                <Link
+                  to="/donate"
+                  className={`font-medium hover:text-primary-500 transition-colors ${
+                    location.pathname === "/donate"
+                      ? "text-primary-500"
+                      : "text-gray-700"
+                  }`}
+                >
+                  Donate
+                </Link>
+                <Link
+                  to="/rewards"
+                  className={`font-medium hover:text-primary-500 transition-colors ${
+                    location.pathname === "/rewards"
+                      ? "text-primary-500"
+                      : "text-gray-700"
+                  }`}
+                >
+                  Rewards
+                </Link>
+                <a
+                  href="https://maverick4.netlify.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`font-medium hover:text-primary-500 transition-colors ${
+                    location.pathname.includes("/dashboard")
+                      ? "text-primary-500"
+                      : "text-gray-700"
+                  }`}
+                >
+                  Predict
+                </a>
+                <a
+                  href="https://eatby-date.netlify.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium hover:text-primary-500 transition-colors text-gray-700"
+                >
+                  Inventory
+                </a>
+                <a
+                  href="https://cuisine-compass.netlify.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium hover:text-primary-500 transition-colors text-gray-700"
+                >
+                  Cuisine
+                </a>
+              </>
+            )}
           </nav>
 
           {/* CTA Buttons - Desktop */}
@@ -215,56 +227,6 @@ const NavBar: React.FC = () => {
                   How It Works
                 </Link>
                 <Link
-                  to="/map"
-                  className={`font-medium text-lg ${
-                    location.pathname === "/map"
-                      ? "text-primary-500"
-                      : "text-gray-700"
-                  }`}
-                >
-                  Food Map
-                </Link>
-                <Link
-                  to="/donate"
-                  className={`font-medium text-lg ${
-                    location.pathname === "/donate"
-                      ? "text-primary-500"
-                      : "text-gray-700"
-                  }`}
-                >
-                  Donate
-                </Link>
-                <Link
-                  to="/rewards"
-                  className={`font-medium text-lg ${
-                    location.pathname === "/rewards"
-                      ? "text-primary-500"
-                      : "text-gray-700"
-                  }`}
-                >
-                  Rewards
-                </Link>
-                <a
-                  href="https://maverick4.netlify.app/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`font-medium text-lg ${
-                    location.pathname.includes("/dashboard")
-                      ? "text-primary-500"
-                      : "text-gray-700"
-                  }`}
-                >
-                  Predict
-                </a>
-                <a
-                  href="https://eatby-date.netlify.app/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-medium text-lg text-gray-700"
-                >
-                  Inventory
-                </a>
-                <Link
                   to="/contact"
                   className={`font-medium text-lg ${
                     location.pathname === "/contact"
@@ -274,6 +236,68 @@ const NavBar: React.FC = () => {
                 >
                   Contact Us
                 </Link>
+                {user && (
+                  <>
+                    <Link
+                      to="/map"
+                      className={`font-medium text-lg ${
+                        location.pathname === "/map"
+                          ? "text-primary-500"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      Food Map
+                    </Link>
+                    <Link
+                      to="/donate"
+                      className={`font-medium text-lg ${
+                        location.pathname === "/donate"
+                          ? "text-primary-500"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      Donate
+                    </Link>
+                    <Link
+                      to="/rewards"
+                      className={`font-medium text-lg ${
+                        location.pathname === "/rewards"
+                          ? "text-primary-500"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      Rewards
+                    </Link>
+                    <a
+                      href="https://maverick4.netlify.app/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`font-medium text-lg ${
+                        location.pathname.includes("/dashboard")
+                          ? "text-primary-500"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      Predict
+                    </a>
+                    <a
+                      href="https://eatby-date.netlify.app/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-lg text-gray-700"
+                    >
+                      Inventory
+                    </a>
+                    <a
+                      href="https://cuisine-compass.netlify.app/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-lg text-gray-700"
+                    >
+                      Cuisine
+                    </a>
+                  </>
+                )}
               </nav>
 
               <div className="flex flex-col space-y-4 pt-4 border-t border-gray-200">
