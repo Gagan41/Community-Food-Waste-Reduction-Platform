@@ -16,6 +16,9 @@ const DonateFormPage = lazy(() => import("./pages/DonateFormPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const NgoCertificationPage = lazy(() => import("./pages/NgoCertificationPage"));
+const DonatePage = lazy(() => import("./pages/DonatePage"));
+const RewardsPage = lazy(() => import("./pages/RewardsPage"));
+const DonationsPage = lazy(() => import("./pages/DonationsPage"));
 
 // Loading fallback
 const LoadingFallback = () => (
@@ -43,6 +46,9 @@ function App() {
               path="/ngo-certification"
               element={<NgoCertificationPage />}
             />
+            <Route path="/donate" element={<DonatePage />} />
+            <Route path="/donations" element={<DonationsPage />} />
+            <Route path="/rewards" element={<RewardsPage />} />
 
             {/* Auth routes */}
             <Route path="/auth/login" element={<LoginPage />} />
